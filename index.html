@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guild NoLows</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --black: #000000;
+      --dark-blue: #0d0f19;
+      --accent: #1e3a8a;
+      --text-light: #f0f4f8;
+      --transition: 0.3s ease;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Montserrat', sans-serif;
+      background: var(--black);
+      color: var(--text-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 1rem;
+    }
+    .container {
+      width: 100%;
+      max-width: 800px;
+      background: var(--dark-blue);
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.7);
+      overflow: hidden;
+    }
+    .header {
+      padding: 2rem 1rem;
+      text-align: center;
+      background: #0a0c14;
+    }
+    .header h1 {
+      font-family: 'Bebas Neue', cursive;
+      font-size: 3.5rem;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1rem;
+      padding: 1rem;
+      background: #0a0c14;
+    }
+    .buttons button {
+      background: var(--accent);
+      border: none;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-light);
+      cursor: pointer;
+      border-radius: 8px;
+      transition: background var(--transition);
+      flex: 1 1 auto;
+      max-width: 150px;
+    }
+    .buttons button:hover,
+    .buttons button.active {
+      background: #3741a8;
+    }
+    .content-area {
+      padding: 2rem;
+      background: var(--dark-blue);
+      min-height: 200px;
+    }
+    .content-panel {
+      display: none;
+      animation: fadeIn var(--transition);
+    }
+    .content-panel.active {
+      display: block;
+    }
+    .content-panel h2 {
+      font-family: 'Bebas Neue', cursive;
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      color: var(--accent);
+    }
+    .content-panel p,
+    .content-panel ul,
+    .content-panel ol {
+      margin-top: 0.5rem;
+      line-height: 1.6;
+    }
+    .content-panel ul li,
+    .content-panel ol li {
+      margin-bottom: 0.5rem;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (max-width: 600px) {
+      .header h1 { font-size: 2.5rem; }
+      .content-area { padding: 1rem; }
+      .buttons button { padding: 0.5rem 1rem; font-size: 0.9rem; max-width: 120px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>NoLows</h1>
+    </div>
+    <div class="buttons">
+      <button class="active" data-target="historia">História</button>
+      <button data-target="sobre">Sobre</button>
+      <button data-target="objetivos">Objetivos</button>
+      <button data-target="regras">Regras</button>
+    </div>
+
+    <div class="content-area">
+      <div id="historia" class="content-panel active">
+        <h2>História do surgimento da Guild NoLows</h2>
+        <p>A Guild NoLows nasceu em 10 de janeiro de 2025, quando um grupo de recém-conhecidos, dedicados ao cooperativo, decidiu criar uma comunidade para UP e PvE.</p>
+        <p>A NoLows acolhe qualquer tipo de membro, desde os neutros até os ativos nas guerras.</p>
+        <p>Nosso principal objetivo é criar um ambiente ativo e unido, mesmo com suas diferenças entre os players.</p>
+      </div>
+      <div id="sobre" class="content-panel">
+        <h2>Sobre a Guild</h2>
+        <p>Diferentemente das outras guilds, a NoLows é uma comunidade:</p>
+        <ul>
+          <li>▶ Abrange desde neutros até participantes de wars.</li>
+          <li>▶ Membros não podem se atacar dentro da guild, mesmo sendo inimigos em outras contas.</li>
+          <li>▶ Inimigos em war podem upar juntos como um coletivo dentro da NoLows.</li>
+          <li>▶ Se um player em war participa na guild, a guild não é responsabilizada por ataques externos.</li>
+        </ul>
+      </div>
+      <div id="objetivos" class="content-panel">
+        <h2>Objetivos</h2>
+        <ul>
+          <li>Fomentar amizade, união e evolução.</li>
+          <li>Alcançar posições de destaque no competitivo e no PvE.</li>
+          <li>Oferecer treinos e auxílio no UP.</li>
+          <li>Organizar eventos internos mensalmente.</li>
+        </ul>
+      </div>
+      <div id="regras" class="content-panel">
+        <h2>Regras</h2>
+        <ol>
+          <li>Não pode haver inimizade dentro da guild.</li>
+          <li>Sujeito a aviso e expulsão se não cumprir.</li>
+          <li>Auxílio a novos membros é ideal, mas não obrigatório.</li>
+          <li>A guild não é responsabilizada por ações de membros em war.</li>
+        </ol>
+        <p>O site será atualizado com o tempo, então aguarde novidades.</p>
+        <p>Para quem for novo, parabéns e bem-vindo à guild!</p>
+        <p>▶ Regra de ouro: use o bom senso.</p>
+      </div>
+    </div>
+  </div>
+  <script>
+    const buttons = document.querySelectorAll('.buttons button');
+    const panels = document.querySelectorAll('.content-panel');
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        buttons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const target = btn.getAttribute('data-target');
+        panels.forEach(panel => panel.classList.toggle('active', panel.id === target));
+      });
+    });
+  </script>
+</body>
+</html>
