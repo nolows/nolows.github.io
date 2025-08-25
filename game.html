@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Caça-Frases Polissemia</title>
+<style>
+:root{--bg:#0b1020;--card:#141a2e;--text:#e7ecf5;--brand:#7c5cff;--grid:32px;--radius:12px;--shadow:0 6px 16px rgba(0,0,0,.35);}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font:500 16px/1.2 system-ui, sans-serif;color:var(--text);background:var(--bg)}
+.wrap{max-width:900px;margin:12px auto;padding:8px;display:none}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px}
+h1{font-size:20px;margin:0}
+.pill{padding:4px 8px;border-radius:999px;background:#1e2644;color:#cfd7ff;font-size:12px}
+.layout{display:grid;grid-template-columns:1fr;gap:12px}
+.board{background:var(--card);border-radius:var(--radius);padding:10px;overflow:auto;max-height:70vh}
+.grid{display:grid;grid-template-columns:repeat(var(--cols), var(--grid));gap:4px;justify-content:center;user-select:none;touch-action:none}
+.cell{width:var(--grid);height:var(--grid);border-radius:6px;display:grid;place-items:center;font-weight:700;font-size:14px;color:#cfd7ff;background:#1b2446;border:1px solid #273162}
+.cell.found{background:linear-gradient(180deg,#1d433f,#163b36);border-color:#1f8e73}
+.cell.sel{outline:2px solid #7c5cff}
+.panel{background:var(--card);border-radius:var(--radius);padding:10px;display:flex;flex-direction:column;gap:8px}
+.targets{display:flex;flex-wrap:wrap;gap:6px}
+.target{background:#1e2547;color:#c6cff5;border:1px dashed #32407a;padding:6px 8px;border-radius:8px;font-weight:600;display:flex;gap:6px;align-items:center;font-size:14px}
+.target.done{background:#1c3340;border:1px solid #2b9b7f;color:#b9f0df}
+dialog{border:none;border-radius:10px;background:#0f1530;color:var(--text);max-width:min(600px,92vw)}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+.row{display:flex;gap:6px;margin-bottom:6px}
+.row textarea{flex:1;min-height:40px}
+
+/* Tela de login */
+#loginScreen {
+  position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
+}
+#loginScreen input {
+  padding:8px 12px;border-radius:6px;border:none;font-size:16px;
+}
+#loginScreen button {
+  padding:8px 16px;border-radius:6px;border:none;background:var(--brand);color:white;font-size:16px;cursor:pointer;
+}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <h1>Digite seu nick</h1>
+  <input type="text" id="nickInput" placeholder="Seu nick">
+  <button id="enterBtn">Entrar</button>
+</div>
+
+<div class="wrap" id="gameWrap">
+  <header>
+    <h1>Caça-Frases</h1>
+    <span class="pill" id="timer">⏱️ 05:00</span>
+  </header>
+  <div class="layout">
+    <section class="board">
+      <div id="grid" class="grid" style="--cols:10"></div>
+    </section>
+    <aside class="panel">
+      <div><b>Pontos:</b> <span id="points">0</span></div>
+      <div id="targets" class="targets"></div>
+    </aside>
+  </div>
+</div>
+
+<dialog id="phraseDlg">
+  <form method="dialog" id="phraseForm">
+    <h3 id="dlgTitle">Crie frases</h3>
+    <div id="rows"></div>
+    <button type="button" id="addRow">+ Frase</button>
+    <menu>
+      <button value="cancel">Cancelar</button>
+      <button value="ok">OK</button>
+    </menu>
+  </form>
+</dialog>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+const socket = io("https://4c7aed8a-28e3-4d4e-a08f-e7958a5f0251-00-1lb914l8emwtz.worf.replit.dev");
+
+// --- Tela de login ---
+const loginScreen = document.getElementById("loginScreen");
+const nickInput = document.getElementById("nickInput");
+const enterBtn = document.getElementById("enterBtn");
+let nick = "";
+
+enterBtn.addEventListener("click", () => {
+  nick = nickInput.value.trim() || "Anonimo_" + Math.floor(Math.random()*1000);
+  socket.emit("register", nick);
+  loginScreen.style.display = "none";
+  document.getElementById("gameWrap").style.display = "block";
+  newGame();
+});
+
+// --- Código do jogo (igual ao antigo) ---
+const GAME_CONFIG={cols:10,rows:10,fillCharset:"ABCDEFGHIJKLMNOPQRSTUVWXYZ",words:[
+  {text:"BANCO",senses:[{id:"a",label:"Instituição"},{id:"b",label:"Assento"}]},
+  {text:"MANGA",senses:[{id:"a",label:"Fruta"},{id:"b",label:"Camisa"}]},
+  {text:"CARTEIRA",senses:[{id:"a",label:"Dinheiro"},{id:"b",label:"b",label:"Assento"}]},
+  {text:"PLANTA",senses:[{id:"a",label:"Vegetal"},{id:"b",label:"Desenho"}]},
+  {text:"PASTA",senses:[{id:"a",label:"Dental"},{id:"b",label:"Documento"}]},
+  {text:"QUARTO",senses:[{id:"a",label:"Cômodo"},{id:"b",label:"Numeral"}]}
+]};
+let state={grid:[],words:[],points:0,startTime:null,timerId:null,maxTime:5*60*1000};
+const $=s=>document.querySelector(s);
+
+function cellId(r,c){return `r${r}c${c}`;}
+function randLetter(){return GAME_CONFIG.fillCharset[Math.floor(Math.random()*GAME_CONFIG.fillCharset.length)];}
+function inBounds(r,c){return r>=0&&c>=0&&r<GAME_CONFIG.rows&&c<GAME_CONFIG.cols;}
+
+function newGame(){
+  state.words=GAME_CONFIG.words.map(w=>({...w,found:false,cells:[],sentences:[]}));
+  state.grid=Array.from({length:GAME_CONFIG.rows},()=>Array(GAME_CONFIG.cols).fill(null));
+  for(const w of state.words) placeWord(w);
+  for(let r=0;r<GAME_CONFIG.rows;r++)for(let c=0;c<GAME_CONFIG.cols;c++)if(!state.grid[r][c])state.grid[r][c]=randLetter();
+  state.points=0;$('#points').textContent=state.points;
+  render();resetTimer();
+}
+
+function placeWord(w){
+  const dirs=[{dr:0,dc:1},{dr:1,dc:0},{dr:1,dc:1},{dr:-1,dc:1}];
+  for(let tries=0;tries<500;tries++){
+    const dir=dirs[Math.floor(Math.random()*dirs.length)];
+    const r=Math.floor(Math.random()*GAME_CONFIG.rows);
+    const c=Math.floor(Math.random()*GAME_CONFIG.cols);
+    const endR=r+dir.dr*(w.text.length-1);
+    const endC=c+dir.dc*(w.text.length-1);
+    if(!inBounds(endR,endC))continue;
+    let ok=true;
+    for(let i=0;i<w.text.length;i++){const nr=r+dir.dr*i,nc=c+dir.dc*i;if(state.grid[nr][nc]&&state.grid[nr][nc]!==w.text[i])ok=false;}
+    if(!ok)continue;
+    const cells=[];
+    for(let i=0;i<w.text.length;i++){const nr=r+dir.dr*i,nc=c+dir.dc*i;state.grid[nr][nc]=w.text[i];cells.push({r:nr,c:nc});}
+    w.cells=cells;return;
+  }
+}
+
+function render(){
+  const g=$('#grid');g.innerHTML='';g.style.setProperty('--cols',GAME_CONFIG.cols);
+  for(let r=0;r<GAME_CONFIG.rows;r++)for(let c=0;c<GAME_CONFIG.cols;c++){
+    const el=document.createElement('div');el.className='cell';el.id=cellId(r,c);el.textContent=state.grid[r][c];el.dataset.r=r;el.dataset.c=c;g.appendChild(el);
+  }
+  const t=$('#targets');t.innerHTML='';
+  for(const w of state.words){
+    const d=document.createElement('div');d.className='target'+(w.found?' done':'');d.textContent=w.text;t.appendChild(d);
+  }
+  bindGrid();
+}
+
+let selection=[],dir=null;
+function bindGrid(){
+  const grid=$('#grid');
+  grid.addEventListener('touchstart',e=>{
+    e.preventDefault();selection=[];dir=null;
+    const el=document.elementFromPoint(e.touches[0].clientX,e.touches[0].clientY);
+    if(el && el.classList.contains('cell')){el.classList.add('sel');selection.push(el);}
+  });
+  grid.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    const el=document.elementFromPoint(e.touches[0].clientX,e.touches[0].clientY);
+    if(el && el.classList.contains('cell') && !selection.includes(el)){
+      if(selection.length>0){
+        const last=selection[selection.length-1];
+        const dr=+el.dataset.r - +last.dataset.r;
+        const dc=+el.dataset.c - +last.dataset.c;
+        const gcd=(a,b)=>b===0?a:gcd(b,a%b);
+        const step=gcd(Math.abs(dr),Math.abs(dc))||1;
+        const ndir={dr:dr/step,dc:dc/step};
+        if(!dir){dir=ndir;} else {if(ndir.dr!==dir.dr || ndir.dc!==dir.dc) return;}
+      }
+      el.classList.add('sel');selection.push(el);
+    }
+  });
+  grid.addEventListener('touchend',e=>{checkSelection();});
+}
+
+function checkSelection(){
+  if(selection.length<2){selection.forEach(c=>c.classList.remove('sel'));selection=[];dir=null;return;}
+  const selectedText=selection.map(c=>c.textContent).join('');
+  const reversedText=[...selectedText].reverse().join('');
+  for(const w of state.words){if(w.found)continue;
+    if(selectedText===w.text||reversedText===w.text){
+      w.found=true;
+      openPhraseModal(w);
+      break;
+    }
+  }
+  selection.forEach(c=>c.classList.remove('sel'));selection=[];dir=null;render();
+}
+
+const dlg=$('#phraseDlg'),rowsDiv=$('#rows');let currentWord=null;
+function openPhraseModal(w){currentWord=w;$('#dlgTitle').textContent=w.text;rowsDiv.innerHTML='';addRow();addRow();dlg.showModal();}
+function addRow(){const row=document.createElement('div');row.className='row';row.innerHTML='<textarea></textarea>';rowsDiv.appendChild(row);}
+$('#addRow').onclick=()=>addRow();
+
+dlg.addEventListener('close',()=>{
+  if(dlg.returnValue==='ok'){
+    const frases = [...rowsDiv.querySelectorAll('textarea')].map(t=>t.value.trim()).filter(f=>f);
+    if(frases.length>0){
+      // envia TODAS as frases para o servidor
+      frases.forEach(f=>{
+        socket.emit("submitPhrase",{nick,phrase:f});
+      });
+    }
+    state.points += Math.max(0, frases.length-1);
+    $('#points').textContent = state.points;
+  }
+});
+
+function resetTimer(){if(state.timerId)clearInterval(state.timerId);state.startTime=Date.now();state.timerId=setInterval(updateTimer,1000);}
+function updateTimer(){const elapsed=Date.now()-state.startTime;const remaining=Math.max(0,state.maxTime-elapsed);const m=String(Math.floor(remaining/60000)).padStart(2,'0');const s=String(Math.floor((remaining%60000)/1000)).padStart(2,'0');$('#timer').textContent=`⏱️ ${m}:${s}`;if(remaining<=0) clearInterval(state.timerId);}
+</script>
+</body>
+</html>
